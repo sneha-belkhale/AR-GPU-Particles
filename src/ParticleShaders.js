@@ -7,15 +7,19 @@ const ParticleShaders = {
 
     uniform float uTime;
     uniform float uScale;
+    uniform vec3 cameraPos;
     uniform sampler2D positionTex;
 
     varying float lifeLeft;
 
     void main() {
-      gl_PointSize = 5.0;
 
       vec3 newPos = texture2D(positionTex, uv).xyz;
-      newPos.xyz *= 500.0;
+      newPos.xyz *= 5.0;
+      newPos.xyz -= 2.50;
+
+      float distance = length(newPos - cameraPos);
+      gl_PointSize = min(15.0, 30.0/distance);
 
       float timeElapsed = uTime - startTime;
       lifeLeft = max(1.0 - ( timeElapsed / lifeTime ), 0.0);
@@ -63,14 +67,17 @@ const ParticleShaders = {
     void main() {
       //this value later will correspond to position
       vec3 prevPos = texture2D(positionTex, vUv).xyz;
-      prevPos.xyz *= 500.0;
+      prevPos.xyz *= 5.0;
+      prevPos.xyz -= 2.50;
 
-      float distance = 500.0/(length(cross(ray, prevPos - origin)));
+      float distance = 50.0/(length(cross(ray, prevPos - origin)));
       vec3 dir = normalize(prevPos-normalize(ray));
-      prevPos.xyz += (vVelocity + distance*dir);
+      prevPos.xyz += (vVelocity);
 
       vec3 newPos = prevPos;
-      newPos = newPos/500.0;
+
+      newPos.xyz += 2.50;
+      newPos = newPos/5.0;
       gl_FragColor = vec4( newPos, 1.0);
     }
   `,
