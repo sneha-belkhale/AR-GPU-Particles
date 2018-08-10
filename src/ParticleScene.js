@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import ParticleShaders from './ParticleShaders'
+import ParticleShaderWeb from './ParticleShaderWeb'
 
 var OrbitControls = require('three-orbit-controls')(THREE)
 
@@ -10,6 +10,9 @@ const PARTICLE_COUNT = 10000;
 var particleGeo, particleMat;
 var computeScene, computeCamera, positionBufferTexture, positionBuffer, positionDataTex, computeMesh, computeGeo;
 var computeShader;
+
+var computeVelocityScene, computeVelocityCamera, velocityBufferTexture, velocityBuffer, velocityDataTex, computeVelocityMesh, computeVelocityGeo;
+var computeVelocityShader;
 
 function init() {
   //initialize scene
@@ -45,7 +48,7 @@ function init() {
     positionAttribute.array[3*i+1] = i
     positionAttribute.array[3*i+2] = i
     startTimeAttribute.array[i] = clock.getElapsedTime();
-    lifeTimeAttribute.array[i] = 10; // 10 second lifetime
+    lifeTimeAttribute.array[i] = 40; // 10 second lifetime
     uvAttribute.array[2*i] = (i%100)/100;
     uvAttribute.array[2*i+1] = Math.floor(i/100)/100;
   }
@@ -63,8 +66,8 @@ function init() {
       'positionTex': {value: 0.0},
     },
     blending: THREE.AdditiveBlending,
-    vertexShader: ParticleShaders.vertexShader,
-    fragmentShader: ParticleShaders.fragmentShader
+    vertexShader: ParticleShaderWeb.vertexShader,
+    fragmentShader: ParticleShaderWeb.fragmentShader
   });
   particleMat.uniforms.needsUpdate = true;
   var particleSystem = new THREE.Points( particleGeo, particleMat );
@@ -81,11 +84,12 @@ function init() {
     depthWrite: false,
     uniforms: {
       'positionTex': {value: 0.0},
+      'velocityTex': {value: 0.0},
       'ray': {value: new THREE.Vector3()},
       'origin': {value: new THREE.Vector3()}
     },
-    vertexShader: ParticleShaders.vertexComputeShader,
-    fragmentShader: ParticleShaders.fragmentComputeShader
+    vertexShader: ParticleShaderWeb.vertexComputeShader,
+    fragmentShader: ParticleShaderWeb.fragmentComputeShader
   } );
 
   //geometry is a plane with width*height segments equal to total # of particles
@@ -101,9 +105,9 @@ function init() {
     positionBuffer[4*i+1] = 0.0
     positionBuffer[4*i+2] = Math.random()/5
     positionBuffer[4*i+3] = 0.1
-    velocityAttribute.array[3*i] = Math.random();
-    velocityAttribute.array[3*i+1] = Math.random();
-    velocityAttribute.array[3*i+2] = Math.random();
+    velocityAttribute.array[3*i] = Math.random()/10;
+    velocityAttribute.array[3*i+1] = Math.random()/10;
+    velocityAttribute.array[3*i+2] = Math.random()/10;
   }
 
   velocityAttribute.needsUpdate = true;
@@ -127,6 +131,48 @@ function init() {
   computeMesh.material.uniforms.positionTex.value = positionDataTex;
   particleSystem.material.uniforms.positionTex.value = positionDataTex;
 
+  //SET UP VELOCITY COMPUTATION VARS
+  computeVelocityScene = new THREE.Scene();
+  computeVelocityCamera = new THREE.Camera();
+  computeVelocityCamera.position.z = 1;
+
+  computeVelocityShader = new THREE.ShaderMaterial( {
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      'positionTex': {value: 0.0},
+      'velocityTex': {value: 0.0},
+      'uTime': {value: 0.0},
+    },
+    vertexShader: ParticleShaderWeb.vertexComputeVelocityShader,
+    fragmentShader: ParticleShaderWeb.fragmentComputeVelocityShader
+  } );
+
+  //geometry is a plane with width*height segments equal to total # of particles
+  computeVelocityGeo = new THREE.PlaneBufferGeometry( 2, 2, 99, 99 );
+
+  computeVelocityMesh = new THREE.Mesh( computeVelocityGeo, computeVelocityShader );
+  computeVelocityScene.add(computeVelocityMesh);
+
+  //SET UP RENDER TARGET
+  velocityBuffer = new Float32Array(100 * 100 * 4);
+
+  velocityBufferTexture = new THREE.WebGLRenderTarget(100, 100, {
+    type: THREE.FloatType,
+    format: THREE.RGBAFormat,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+  velocityDataTex = new THREE.DataTexture(velocityBuffer, 100, 100, THREE.RGBAFormat, THREE.FloatType);
+  velocityDataTex.magFilter = THREE.NearestFilter;
+  velocityDataTex.minFilter = THREE.NearestFilter;
+  velocityDataTex.needsUpdate = true;
+
+  //UPDATE MATERIALS ON COMPUTE + PARTICLE MESH
+  computeVelocityMesh.material.uniforms.velocityTex.value = velocityDataTex;
+  computeVelocityMesh.material.uniforms.positionTex.value = positionDataTex;
+  computeMesh.material.uniforms.velocityTex.value = velocityDataTex;
+
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2()
   document.addEventListener('mousemove', onDocumentMouseMove, false);
@@ -148,7 +194,7 @@ function spawnParticle(position){
   var lifeTimeAttribute = particleGeo.getAttribute( 'lifeTime' );
 
   startTimeAttribute.array[i] = clock.getElapsedTime();
-  lifeTimeAttribute.array[i] = 10;
+  lifeTimeAttribute.array[i] = 40;
 
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
@@ -160,10 +206,11 @@ function spawnParticle(position){
   buf[4*i+2] = position.z
   positionDataTex.needsUpdate = true;
 
-  var velocityAttribute = computeGeo.getAttribute( 'velocity' );
-  velocityAttribute.array[3*i] = Math.random();
-  velocityAttribute.array[3*i+1] = Math.random();
-  velocityAttribute.array[3*i+2] = Math.random();
+  var vbuf = velocityDataTex.image.data;
+  vbuf[4*i] = 0
+  vbuf[4*i+1] = 0
+  vbuf[4*i+2] = 0
+  velocityDataTex.needsUpdate = true;
 
   CUR_INDEX += 1;
   if( CUR_INDEX >= PARTICLE_COUNT) {
@@ -177,13 +224,17 @@ function update() {
     renderer.readRenderTargetPixels(positionBufferTexture, 0, 0, 100, 100, positionBuffer);
     positionDataTex.image.data = positionBuffer;
     positionDataTex.needsUpdate = true;
+    renderer.render(computeVelocityScene, computeVelocityCamera, velocityBufferTexture);
+    renderer.readRenderTargetPixels(velocityBufferTexture, 0, 0, 100, 100, velocityBuffer);
+    velocityDataTex.image.data = velocityBuffer;
+    velocityDataTex.needsUpdate = true;
     renderer.render(scene, camera);
     // renderer.render(computeScene, computeCamera);
 
     requestAnimationFrame(update);
-    for (var i = 0; i < 10; i ++) {
+    for (var i = 0; i < 30; i ++) {
       //for now , all initial positions are at the origin
-      var newPos = new THREE.Vector3(0.01,0.01,0.01);
+      var newPos = new THREE.Vector3(Math.cos(clock.getElapsedTime()/2)/600+0.5 + Math.random()/100, Math.sin(clock.getElapsedTime()/2)/600+0.5, 0.5);
       spawnParticle(newPos)
     }
 
@@ -192,6 +243,8 @@ function update() {
     computeMesh.material.uniforms.ray.value = raycaster.ray.direction.clone()
     computeMesh.material.uniforms.origin.value = raycaster.ray.origin.clone()
     particleMat.uniforms.uTime.value = clock.getElapsedTime();
+    computeVelocityMesh.material.uniforms.uTime.value += 0.001;
+
 }
 
 init();

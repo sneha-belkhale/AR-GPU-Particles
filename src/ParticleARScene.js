@@ -64,9 +64,9 @@ function init() {
   clock = new THREE.Clock()
 
   //add refernce cube
-  var boxGeo = new THREE.BoxBufferGeometry( 1,1,1 );
-  var cube = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial());
-  scene.add(cube)
+  // var boxGeo = new THREE.BoxBufferGeometry( 1,1,1 );
+  // var cube = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial());
+  // scene.add(cube)
 
 
   //SET UP PARTICLE GEOMETRY
@@ -242,13 +242,25 @@ function update() {
     // console.log(x, y, z);
     // var newPos = new THREE.Vector3(x, y, z);
 
-    var x = (Math.random() + camera.position.x+2.5)/5;
-    var y = (Math.random() + camera.position.y+2.5)/5;
-    var z = (Math.random() + camera.position.z+2.5)/5;
-    var newPos = new THREE.Vector3(x,y,z);
-
     var worldDir = new THREE.Vector3();
     camera.getWorldDirection(worldDir);
+
+    var right = new THREE.Vector3(-1,0,0);
+    right.applyMatrix4(camera.matrixWorldInverse);
+
+    var down = new THREE.Vector3(0,-1,0);
+    down.applyMatrix4(camera.matrixWorldInverse);
+
+    var x = (0.3*Math.random() + 0.05*down.x +  0.05*right.x + camera.position.x+2.5)/5;
+    var y = (0.3*Math.random() + 0.05*down.y + 0.05*right.y + camera.position.y+2.5)/5;
+    var z = (0.3*Math.random() + 0.05*down.z + 0.05*right.z + camera.position.z+2.5)/5;
+    var newPos = new THREE.Vector3(x,y,z);
+
+
+    // var x = (Math.random() + camera.position.x+2.5)/5;
+    // var y = (Math.random() + camera.position.y+2.5)/5;
+    // var z = (Math.random() + camera.position.z+2.5)/5;
+    // var newPos = new THREE.Vector3(x,y,z);
 
     spawnParticle(newPos, worldDir.normalize())
   }
