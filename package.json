@@ -2,6 +2,7 @@
   "name": "particles-threejs",
   "version": "0.1.0",
   "private": true,
+  "homepage": "./",
   "dependencies": {
     "react-scripts": "1.1.4",
     "three": "^0.93.0",
