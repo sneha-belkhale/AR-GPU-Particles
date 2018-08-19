@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { ARUtils, ARPerspectiveCamera, ARView, ARDebug } from 'three.ar.js';
 import VRControls from 'three-vrcontrols-module';
-import ParticleShaders from './ParticleShaders'
+import ParticleShaderAR from './ParticleShaderAR'
 
 var vrDisplay, vrControls, arView;
 var canvas, camera, scene, renderer;
@@ -13,21 +13,26 @@ const COUNT_ROOT = 100;
 var particleGeo, particleMat;
 var computeScene, computeCamera, positionBufferTexture, positionBuffer, positionDataTex, computeMesh, computeGeo;
 var computeShader;
+
+var computeVelocityScene, computeVelocityCamera, velocityBufferTexture, velocityBuffer, velocityDataTex, computeVelocityMesh, computeVelocityGeo;
+var computeVelocityShader;
+
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
  * to see if there are any AR-capable WebVR VRDisplays. Returns
  * a valid display if found. Otherwise, display the unsupported
  * browser message.
  */
-ARUtils.getARDisplay().then(function (display) {
-  if (display) {
-    vrDisplay = display;
-    init();
-  } else {
-    ARUtils.displayUnsupportedMessage();
-  }
-});
-function init() {
+// ARUtils.getARDisplay().then(function (display) {
+//   if (display) {
+//     vrDisplay = display;
+//     init();
+//   } else {
+//     ARUtils.displayUnsupportedMessage();
+//   }
+// });
+export default function initARScene(display) {
+  vrDisplay = display;
   var arDebug = new ARDebug( vrDisplay );
   document.body.appendChild( arDebug.getElement() );
   // Setup the three.js rendering environment
@@ -87,7 +92,7 @@ function init() {
     positionAttribute.array[3*i+1] = i
     positionAttribute.array[3*i+2] = i
     startTimeAttribute.array[i] = clock.getElapsedTime();
-    lifeTimeAttribute.array[i] = 10; // 10 second lifetime
+    lifeTimeAttribute.array[i] = 60; // 10 second lifetime
     uvAttribute.array[2*i] = (i%COUNT_ROOT)/COUNT_ROOT;
     uvAttribute.array[2*i+1] = Math.floor(i/COUNT_ROOT)/COUNT_ROOT;
   }
@@ -106,8 +111,8 @@ function init() {
       'cameraPos': {value: new THREE.Vector3()}
     },
     blending: THREE.AdditiveBlending,
-    vertexShader: ParticleShaders.vertexShader,
-    fragmentShader: ParticleShaders.fragmentShader
+    vertexShader: ParticleShaderAR.vertexShader,
+    fragmentShader: ParticleShaderAR.fragmentShader
   });
   particleMat.uniforms.needsUpdate = true;
   var particleSystem = new THREE.Points( particleGeo, particleMat );
@@ -124,11 +129,12 @@ function init() {
     depthWrite: false,
     uniforms: {
       'positionTex': {value: 0.0},
+      'velocityTex': {value: 0.0},
       'ray': {value: new THREE.Vector3()},
       'origin': {value: new THREE.Vector3()}
     },
-    vertexShader: ParticleShaders.vertexComputeShader,
-    fragmentShader: ParticleShaders.fragmentComputeShader
+    vertexShader: ParticleShaderAR.vertexComputeShader,
+    fragmentShader: ParticleShaderAR.fragmentComputeShader
   } );
 
   //geometry is a plane with width*height segments equal to total # of particles
@@ -170,6 +176,48 @@ function init() {
   computeMesh.material.uniforms.positionTex.value = positionDataTex;
   particleSystem.material.uniforms.positionTex.value = positionDataTex;
 
+  //SET UP VELOCITY COMPUTATION VARS
+  computeVelocityScene = new THREE.Scene();
+  computeVelocityCamera = new THREE.Camera();
+  computeVelocityCamera.position.z = 1;
+
+  computeVelocityShader = new THREE.ShaderMaterial( {
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      'positionTex': {value: 0.0},
+      'velocityTex': {value: 0.0},
+      'uTime': {value: 0.0},
+    },
+    vertexShader: ParticleShaderAR.vertexComputeVelocityShader,
+    fragmentShader: ParticleShaderAR.fragmentComputeVelocityShader
+  } );
+
+  //geometry is a plane with width*height segments equal to total # of particles
+  computeVelocityGeo = new THREE.PlaneBufferGeometry( 2, 2, COUNT_ROOT-1, COUNT_ROOT-1 );
+
+  computeVelocityMesh = new THREE.Mesh( computeVelocityGeo, computeVelocityShader );
+  computeVelocityScene.add(computeVelocityMesh);
+
+  //SET UP RENDER TARGET
+  velocityBuffer = new Float32Array(COUNT_ROOT * COUNT_ROOT * 4);
+
+  velocityBufferTexture = new THREE.WebGLRenderTarget(COUNT_ROOT, COUNT_ROOT, {
+    type: THREE.FloatType,
+    format: THREE.RGBAFormat,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+  velocityDataTex = new THREE.DataTexture(velocityBuffer, COUNT_ROOT, COUNT_ROOT, THREE.RGBAFormat, THREE.FloatType);
+  velocityDataTex.magFilter = THREE.NearestFilter;
+  velocityDataTex.minFilter = THREE.NearestFilter;
+  velocityDataTex.needsUpdate = true;
+
+  //UPDATE MATERIALS ON COMPUTE + PARTICLE MESH
+  computeVelocityMesh.material.uniforms.velocityTex.value = velocityDataTex;
+  computeVelocityMesh.material.uniforms.positionTex.value = positionDataTex;
+  computeMesh.material.uniforms.velocityTex.value = velocityDataTex;
+
   update();
 }
 
@@ -181,7 +229,7 @@ function spawnParticle(position, worldDir){
   var lifeTimeAttribute = particleGeo.getAttribute( 'lifeTime' );
 
   startTimeAttribute.array[i] = clock.getElapsedTime();
-  lifeTimeAttribute.array[i] = 15;
+  lifeTimeAttribute.array[i] = 60;
 
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
@@ -193,12 +241,11 @@ function spawnParticle(position, worldDir){
   buf[4*i+2] = position.z
   positionDataTex.needsUpdate = true;
 
-  var velocityAttribute = computeGeo.getAttribute( 'velocity' );
-  computeGeo.attributes.velocity.array[3*i] = worldDir.x/50;
-  computeGeo.attributes.velocity.array[3*i+1] = worldDir.y/50;
-  computeGeo.attributes.velocity.array[3*i+2] = worldDir.z/50;
-
-  computeGeo.attributes.velocity.needsUpdate = true;
+  var velbuf = velocityDataTex.image.data;
+  velbuf[4*i] = worldDir.x/50
+  velbuf[4*i+1] = worldDir.x/50
+  velbuf[4*i+2] = worldDir.x/50
+  velocityDataTex.needsUpdate = true;
 
   CUR_INDEX += 1;
   if( CUR_INDEX >= PARTICLE_COUNT) {
@@ -227,6 +274,11 @@ function update() {
   // Render our three.js virtual scene
   renderer.clearDepth();
 
+  renderer.render(computeVelocityScene, computeVelocityCamera, velocityBufferTexture);
+  renderer.readRenderTargetPixels(velocityBufferTexture, 0, 0, COUNT_ROOT, COUNT_ROOT, velocityBuffer);
+  velocityDataTex.image.data = velocityBuffer;
+  velocityDataTex.needsUpdate = true;
+
   renderer.render(computeScene, computeCamera, positionBufferTexture);
   renderer.readRenderTargetPixels(positionBufferTexture, 0, 0, COUNT_ROOT, COUNT_ROOT, positionBuffer);
   positionDataTex.image.data = positionBuffer;
@@ -234,7 +286,7 @@ function update() {
   renderer.render(scene, camera);
   // renderer.render(computeScene, computeCamera);
 
-  for (var i = 0; i < 10; i ++) {
+  for (var i = 0; i < 30; i ++) {
     //for now , all initial positions are at the origin
     // var x = (camera.position.x+2.5)/5;
     // var y = (camera.position.y+2.5)/5;
@@ -244,17 +296,25 @@ function update() {
 
     var worldDir = new THREE.Vector3();
     camera.getWorldDirection(worldDir);
+    worldDir.normalize();
+    // var right = new THREE.Vector3(-1,0,0);
+    // right.applyMatrix4(camera.matrixWorldInverse);
+    //
+    // var down = new THREE.Vector3(0,-1,0);
+    // down.applyMatrix4(camera.matrixWorldInverse);
 
-    var right = new THREE.Vector3(-1,0,0);
-    right.applyMatrix4(camera.matrixWorldInverse);
-
-    var down = new THREE.Vector3(0,-1,0);
-    down.applyMatrix4(camera.matrixWorldInverse);
-
-    var x = (0.3*Math.random() + 0.05*down.x +  0.05*right.x + camera.position.x+2.5)/5;
-    var y = (0.3*Math.random() + 0.05*down.y + 0.05*right.y + camera.position.y+2.5)/5;
-    var z = (0.3*Math.random() + 0.05*down.z + 0.05*right.z + camera.position.z+2.5)/5;
+    var x = (0.1*Math.random() + camera.position.x + 0.5*worldDir.x +2.5)/5;
+    var y = (0.1*Math.random() + camera.position.y + 0.5*worldDir.y +2.5)/5;
+    var z = (0.1*Math.random() + camera.position.z + 0.5*worldDir.z +2.5)/5;
     var newPos = new THREE.Vector3(x,y,z);
+
+    // var x = (0.1*Math.random() + 0.05*down.x +  0.05*right.x + camera.position.x+2.5)/5;
+    // var y = (0.1*Math.random() + 0.05*down.y + 0.05*right.y + camera.position.y+2.5)/5;
+    // var z = (0.1*Math.random() + 0.05*down.z + 0.05*right.z + camera.position.z+2.5)/5;
+    // var newPos = new THREE.Vector3(x,y,z);
+
+    // newPos.x += Math.cos(clock.getElapsedTime()/2)/400;
+    // newPos.z += Math.sin(clock.getElapsedTime()/2)/400;
 
 
     // var x = (Math.random() + camera.position.x+2.5)/5;
@@ -262,7 +322,7 @@ function update() {
     // var z = (Math.random() + camera.position.z+2.5)/5;
     // var newPos = new THREE.Vector3(x,y,z);
 
-    spawnParticle(newPos, worldDir.normalize())
+    spawnParticle(newPos, worldDir)
   }
 
   var worldDir = new THREE.Vector3();
@@ -272,6 +332,7 @@ function update() {
   computeMesh.material.uniforms.origin.value = camera.position.clone()
   particleMat.uniforms.uTime.value = clock.getElapsedTime();
   particleMat.uniforms.cameraPos.value = camera.position.clone();
+  computeVelocityMesh.material.uniforms.uTime.value += 0.001;
 
   // Kick off the requestAnimationFrame to call this function
   // when a new VRDisplay frame is rendered
