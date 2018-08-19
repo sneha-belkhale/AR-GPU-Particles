@@ -155,7 +155,7 @@ const ParticleShaders = {
       vec3 vColor = normalize(vPos);
       vec4 spriteColor = texture2D( particleSpriteTex, gl_PointCoord);
 
-      gl_FragColor = vec4((1.0 - vPos), 1.0 );
+      gl_FragColor = vec4(spriteColor.r*(1.0 - vPos), 1.0 );
     }
   `,
   vertexComputeShader: `
