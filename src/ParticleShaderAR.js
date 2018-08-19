@@ -109,9 +109,7 @@ vec3 s( vec3 p, float angle){
   const float divisor = 1.0 / ( 2.0 * e );
   return normalize( vec3( x , y , z ) * divisor );
 }`;
-
 const ParticleShaders = {
-
   vertexShader: `
     precision highp float;
 
@@ -125,17 +123,19 @@ const ParticleShaders = {
 
     varying float lifeLeft;
     varying vec3 vPos;
+
     void main() {
 
       vec3 newPos = texture2D(positionTex, uv).xyz;
-      newPos.xyz *= 50.0;
-      newPos.xyz -= 25.0;
+      newPos.xyz *= 5.0;
+      newPos.xyz -= 2.50;
 
       float distance = length(newPos - cameraPos);
-      gl_PointSize = min(3.0, 30.0/distance);
+      gl_PointSize = min(10.0, 10.0/distance);
 
       float timeElapsed = uTime - startTime;
       lifeLeft = max(1.0 - ( timeElapsed / lifeTime ), 0.0);
+
       vPos = newPos.xyz;
 
       gl_Position = projectionMatrix * modelViewMatrix * vec4( newPos.xyz, 1.0 );
@@ -146,28 +146,13 @@ const ParticleShaders = {
     precision highp float;
 
     uniform sampler2D positionTex;
-    uniform sampler2D particleSpriteTex;
-
     varying float lifeLeft;
     varying vec3 vPos;
 
-    vec3 colorA = vec3(0.149,0.141,0.912);
-    vec3 colorB = vec3(1.000,0.833,0.224);
-
     void main() {
-      vec3 posColor = normalize(vPos);
-      posColor.x = sin(posColor.x);
-      // vColor.y = cos(vColor.y);
-      // vColor.z = lifeLeft*vColor.z;
+      vec3 vColor = normalize(vPos);
 
-
-      vec3 vColor = mix(colorA, colorB, 0.8*lifeLeft);
-
-
-      vec2 uv = gl_FragCoord.xy;
-      vec4 spriteColor = texture2D( particleSpriteTex, uv );
-
-      gl_FragColor = spriteColor.b*vec4(vColor + 0.8*(1.0 - posColor), 1.0);
+      gl_FragColor = vec4( 1.0 - vPos, 1.0 );
     }
   `,
   vertexComputeShader: `
@@ -185,7 +170,6 @@ const ParticleShaders = {
     }
   `,
   fragmentComputeShader: `
-
     precision highp float;
 
     uniform sampler2D positionTex;
@@ -202,18 +186,17 @@ const ParticleShaders = {
       vec3 prevPos = texture2D(positionTex, vUv).xyz;
       vec3 velocity = texture2D(velocityTex, vUv).xyz;
 
-      prevPos.xyz *= 50.0;
-      prevPos.xyz -= 25.0;
+      prevPos.xyz *= 5.0;
+      prevPos.xyz -= 2.50;
 
       float distance = 50.0/(length(cross(ray, prevPos - origin)));
       vec3 dir = normalize(prevPos-normalize(ray));
-
       prevPos.xyz += (velocity);
 
       vec3 newPos = prevPos;
 
-      newPos.xyz += 25.0;
-      newPos = newPos/50.0;
+      newPos.xyz += 2.50;
+      newPos = newPos/5.0;
       gl_FragColor = vec4( newPos, 1.0);
     }
   `,
@@ -248,8 +231,8 @@ const ParticleShaders = {
       vec3 prevPos = texture2D(positionTex, vUv).xyz;
       vec3 velocity = texture2D(velocityTex, vUv).xyz;
 
-      prevPos.xyz *= 50.0;
-      prevPos.xyz -= 25.0;
+      prevPos.xyz *= 5.0;
+      prevPos.xyz -= 2.50;
 
 
       vec3 curlVelocity = 0.005*s(prevPos, uTime) + 0.01*velocity + 0.001*vec3(1.0,0,0);

@@ -14,7 +14,9 @@ var computeShader;
 var computeVelocityScene, computeVelocityCamera, velocityBufferTexture, velocityBuffer, velocityDataTex, computeVelocityMesh, computeVelocityGeo;
 var computeVelocityShader;
 
-function init() {
+
+export default function initWebScene() {
+
   //initialize scene
   scene = new THREE.Scene();
   //initialize camera
@@ -29,7 +31,6 @@ function init() {
   document.body.appendChild( renderer.domElement );
 
   clock = new THREE.Clock()
-
   //SET UP PARTICLE GEOMETRY
   particleGeo = new THREE.BufferGeometry();
   particleGeo.addAttribute( 'uv', new THREE.BufferAttribute( new Float32Array( PARTICLE_COUNT * 2 ), 2 ).setDynamic( true ) );
@@ -48,7 +49,7 @@ function init() {
     positionAttribute.array[3*i+1] = i
     positionAttribute.array[3*i+2] = i
     startTimeAttribute.array[i] = clock.getElapsedTime();
-    lifeTimeAttribute.array[i] = 40; // 10 second lifetime
+    lifeTimeAttribute.array[i] = 5; // 10 second lifetime
     uvAttribute.array[2*i] = (i%100)/100;
     uvAttribute.array[2*i+1] = Math.floor(i/100)/100;
   }
@@ -57,6 +58,9 @@ function init() {
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
 
+  var textureLoader = new THREE.TextureLoader();
+  var particleSpriteTex = textureLoader.load( require('./misty.png') );
+
   particleMat = new THREE.ShaderMaterial( {
     transparent: true,
     depthWrite: false,
@@ -64,6 +68,7 @@ function init() {
       'uTime': {value: 0.0},
       'uScale': {value: 1.0},
       'positionTex': {value: 0.0},
+      'particleSpriteTex': {value: particleSpriteTex},
     },
     blending: THREE.AdditiveBlending,
     vertexShader: ParticleShaderWeb.vertexShader,
@@ -194,7 +199,7 @@ function spawnParticle(position){
   var lifeTimeAttribute = particleGeo.getAttribute( 'lifeTime' );
 
   startTimeAttribute.array[i] = clock.getElapsedTime();
-  lifeTimeAttribute.array[i] = 40;
+  lifeTimeAttribute.array[i] = 5;
 
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
@@ -220,14 +225,14 @@ function spawnParticle(position){
 
 function update() {
     renderer.clear()
-    renderer.render(computeScene, computeCamera, positionBufferTexture);
-    renderer.readRenderTargetPixels(positionBufferTexture, 0, 0, 100, 100, positionBuffer);
-    positionDataTex.image.data = positionBuffer;
-    positionDataTex.needsUpdate = true;
     renderer.render(computeVelocityScene, computeVelocityCamera, velocityBufferTexture);
     renderer.readRenderTargetPixels(velocityBufferTexture, 0, 0, 100, 100, velocityBuffer);
     velocityDataTex.image.data = velocityBuffer;
     velocityDataTex.needsUpdate = true;
+    renderer.render(computeScene, computeCamera, positionBufferTexture);
+    renderer.readRenderTargetPixels(positionBufferTexture, 0, 0, 100, 100, positionBuffer);
+    positionDataTex.image.data = positionBuffer;
+    positionDataTex.needsUpdate = true;
     renderer.render(scene, camera);
     // renderer.render(computeScene, computeCamera);
 
@@ -246,5 +251,3 @@ function update() {
     computeVelocityMesh.material.uniforms.uTime.value += 0.001;
 
 }
-
-init();
