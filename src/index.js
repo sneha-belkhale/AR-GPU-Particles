@@ -2,6 +2,9 @@ import { ARUtils } from 'three.ar.js';
 import initWebScene from './ParticleScene'
 import initARScene from './ParticleARScene'
 
+
+document.body.style.margin = "0";
+
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
  * to see if there are any AR-capable WebVR VRDisplays. Returns

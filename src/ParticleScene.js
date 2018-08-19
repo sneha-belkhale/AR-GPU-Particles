@@ -21,7 +21,7 @@ export default function initWebScene() {
   scene = new THREE.Scene();
   //initialize camera
   camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.0001, 100000 );
-  camera.position.z = 10;
+  camera.position.z = 1;
   //set up orbit controls on the camera
   controls = new OrbitControls(camera);
   //initialize renderer
@@ -106,13 +106,13 @@ export default function initWebScene() {
   positionBuffer = new Float32Array(100 * 100 * 4);
 
   for (var i = 0; i < velocityAttribute.count; i++){
-    positionBuffer[4*i] = Math.random()/5
-    positionBuffer[4*i+1] = 0.0
-    positionBuffer[4*i+2] = Math.random()/5
-    positionBuffer[4*i+3] = 0.1
-    velocityAttribute.array[3*i] = Math.random()/10;
-    velocityAttribute.array[3*i+1] = Math.random()/10;
-    velocityAttribute.array[3*i+2] = Math.random()/10;
+    positionBuffer[4*i] = Math.random();
+    positionBuffer[4*i+1] = 0.0;
+    positionBuffer[4*i+2] = Math.random();
+    positionBuffer[4*i+3] = 0.1;
+    velocityAttribute.array[3*i] = Math.random()/2;
+    velocityAttribute.array[3*i+1] = Math.random()/2;
+    velocityAttribute.array[3*i+2] = Math.random()/2;
   }
 
   velocityAttribute.needsUpdate = true;
@@ -239,7 +239,10 @@ function update() {
     requestAnimationFrame(update);
     for (var i = 0; i < 30; i ++) {
       //for now , all initial positions are at the origin
-      var newPos = new THREE.Vector3(Math.cos(clock.getElapsedTime()/2)/600+0.5 + Math.random()/100, Math.sin(clock.getElapsedTime()/2)/600+0.5, 0.5);
+      var newPos = new THREE.Vector3(
+        Math.cos(clock.getElapsedTime()/2)/6 - 1 + Math.random(),
+        Math.sin(clock.getElapsedTime()/2)/6,
+        Math.random()/20);
       spawnParticle(newPos)
     }
 

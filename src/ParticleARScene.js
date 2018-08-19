@@ -92,7 +92,7 @@ export default function initARScene(display) {
     positionAttribute.array[3*i+1] = i
     positionAttribute.array[3*i+2] = i
     startTimeAttribute.array[i] = clock.getElapsedTime();
-    lifeTimeAttribute.array[i] = 60; // 10 second lifetime
+    lifeTimeAttribute.array[i] = 10; // 10 second lifetime
     uvAttribute.array[2*i] = (i%COUNT_ROOT)/COUNT_ROOT;
     uvAttribute.array[2*i+1] = Math.floor(i/COUNT_ROOT)/COUNT_ROOT;
   }
@@ -104,8 +104,9 @@ export default function initARScene(display) {
   var textureLoader = new THREE.TextureLoader();
   var particleSpriteTex = textureLoader.load( require('./misty.png') );
 
+  particleSpriteTex.wrapS = particleSpriteTex.wrapT = THREE.RepeatWrapping;
+
   particleMat = new THREE.ShaderMaterial( {
-    // transparent: true,
     depthWrite: false,
     uniforms: {
       'uTime': {value: 0.0},
@@ -114,7 +115,7 @@ export default function initARScene(display) {
       'cameraPos': {value: new THREE.Vector3()},
       'particleSpriteTex': {value: particleSpriteTex}
     },
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     vertexShader: ParticleShaderAR.vertexShader,
     fragmentShader: ParticleShaderAR.fragmentShader,
     transparent: true,
@@ -234,7 +235,7 @@ function spawnParticle(position, worldDir){
   var lifeTimeAttribute = particleGeo.getAttribute( 'lifeTime' );
 
   startTimeAttribute.array[i] = clock.getElapsedTime();
-  lifeTimeAttribute.array[i] = 60;
+  lifeTimeAttribute.array[i] = 10;
 
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
@@ -247,9 +248,9 @@ function spawnParticle(position, worldDir){
   positionDataTex.needsUpdate = true;
 
   var velbuf = velocityDataTex.image.data;
-  velbuf[4*i] = worldDir.x/50
-  velbuf[4*i+1] = worldDir.x/50
-  velbuf[4*i+2] = worldDir.x/50
+  velbuf[4*i] = worldDir.x
+  velbuf[4*i+1] = worldDir.y
+  velbuf[4*i+2] = worldDir.z
   velocityDataTex.needsUpdate = true;
 
   CUR_INDEX += 1;
@@ -292,40 +293,15 @@ function update() {
   // renderer.render(computeScene, computeCamera);
 
   for (var i = 0; i < 30; i ++) {
-    //for now , all initial positions are at the origin
-    // var x = (camera.position.x+2.5)/5;
-    // var y = (camera.position.y+2.5)/5;
-    // var z = (camera.position.z+2.5)/5;
-    // console.log(x, y, z);
-    // var newPos = new THREE.Vector3(x, y, z);
 
     var worldDir = new THREE.Vector3();
     camera.getWorldDirection(worldDir);
     worldDir.normalize();
-    // var right = new THREE.Vector3(-1,0,0);
-    // right.applyMatrix4(camera.matrixWorldInverse);
-    //
-    // var down = new THREE.Vector3(0,-1,0);
-    // down.applyMatrix4(camera.matrixWorldInverse);
 
-    var x = (0.1*Math.random() + camera.position.x + 0.5*worldDir.x +2.5)/5;
-    var y = (0.1*Math.random() + camera.position.y + 0.5*worldDir.y +2.5)/5;
-    var z = (0.1*Math.random() + camera.position.z + 0.5*worldDir.z +2.5)/5;
+    var x = (0.1*Math.random() + camera.position.x + 0.5*worldDir.x);
+    var y = (0.1*Math.random() + camera.position.y + 0.5*worldDir.y);
+    var z = (0.1*Math.random() + camera.position.z + 0.5*worldDir.z);
     var newPos = new THREE.Vector3(x,y,z);
-
-    // var x = (0.1*Math.random() + 0.05*down.x +  0.05*right.x + camera.position.x+2.5)/5;
-    // var y = (0.1*Math.random() + 0.05*down.y + 0.05*right.y + camera.position.y+2.5)/5;
-    // var z = (0.1*Math.random() + 0.05*down.z + 0.05*right.z + camera.position.z+2.5)/5;
-    // var newPos = new THREE.Vector3(x,y,z);
-
-    // newPos.x += Math.cos(clock.getElapsedTime()/2)/400;
-    // newPos.z += Math.sin(clock.getElapsedTime()/2)/400;
-
-
-    // var x = (Math.random() + camera.position.x+2.5)/5;
-    // var y = (Math.random() + camera.position.y+2.5)/5;
-    // var z = (Math.random() + camera.position.z+2.5)/5;
-    // var newPos = new THREE.Vector3(x,y,z);
 
     spawnParticle(newPos, worldDir)
   }
