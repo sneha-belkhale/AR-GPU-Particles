@@ -146,13 +146,16 @@ const ParticleShaders = {
     precision highp float;
 
     uniform sampler2D positionTex;
+    uniform sampler2D particleSpriteTex;
+
     varying float lifeLeft;
     varying vec3 vPos;
 
     void main() {
       vec3 vColor = normalize(vPos);
+      vec4 spriteColor = texture2D( particleSpriteTex, gl_PointCoord);
 
-      gl_FragColor = vec4( 1.0 - vPos, 1.0 );
+      gl_FragColor = vec4((1.0 - vPos), 1.0 );
     }
   `,
   vertexComputeShader: `

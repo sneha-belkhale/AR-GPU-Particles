@@ -163,11 +163,9 @@ const ParticleShaders = {
 
       vec3 vColor = mix(colorA, colorB, 0.8*lifeLeft);
 
+      vec4 spriteColor = texture2D( particleSpriteTex, gl_PointCoord );
 
-      vec2 uv = gl_FragCoord.xy;
-      vec4 spriteColor = texture2D( particleSpriteTex, uv );
-
-      gl_FragColor = spriteColor.b*vec4(vColor + 0.8*(1.0 - posColor), 1.0);
+      gl_FragColor = spriteColor.r*vec4(vColor + 0.8*(1.0 - posColor), 1.0);
     }
   `,
   vertexComputeShader: `

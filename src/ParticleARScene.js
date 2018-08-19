@@ -101,6 +101,9 @@ export default function initARScene(display) {
   startTimeAttribute.needsUpdate = true;
   lifeTimeAttribute.needsUpdate = true;
 
+  var textureLoader = new THREE.TextureLoader();
+  var particleSpriteTex = textureLoader.load( require('./misty.png') );
+
   particleMat = new THREE.ShaderMaterial( {
     // transparent: true,
     depthWrite: false,
@@ -108,11 +111,13 @@ export default function initARScene(display) {
       'uTime': {value: 0.0},
       'uScale': {value: 1.0},
       'positionTex': {value: 0.0},
-      'cameraPos': {value: new THREE.Vector3()}
+      'cameraPos': {value: new THREE.Vector3()},
+      'particleSpriteTex': {value: particleSpriteTex}
     },
     blending: THREE.AdditiveBlending,
     vertexShader: ParticleShaderAR.vertexShader,
-    fragmentShader: ParticleShaderAR.fragmentShader
+    fragmentShader: ParticleShaderAR.fragmentShader,
+    transparent: true,
   });
   particleMat.uniforms.needsUpdate = true;
   var particleSystem = new THREE.Points( particleGeo, particleMat );
